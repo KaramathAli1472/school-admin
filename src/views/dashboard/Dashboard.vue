@@ -26,71 +26,26 @@
       </div>
     </div>
 
-    <!-- Top stats row -->
+    <!-- Stats -->
     <div class="dashboard-stats">
-      <div class="stat-card">
-        <h2>{{ totalStudents }}</h2>
-        <p>Total Students</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalTeachers }}</h2>
-        <p>Total Teachers</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalResults }}</h2>
-        <p>Total Results</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalAttendance }}</h2>
-        <p>Attendance records</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalFees }}</h2>
-        <p>Fees records</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalTimeTables }}</h2>
-        <p>Time Tables</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalEvents }}</h2>
-        <p>Events</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalAchievements }}</h2>
-        <p>Achievements</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalClassDiary }}</h2>
-        <p>Class Diary</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalAnnouncements }}</h2>
-        <p>Announcements</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalPTMFeedback }}</h2>
-        <p>PTM Feedback</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalLibraryBooks }}</h2>
-        <p>Library Books</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalObjectiveExams }}</h2>
-        <p>Objective Exams</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalParentConcerns }}</h2>
-        <p>Parent Concerns</p>
-      </div>
-      <div class="stat-card">
-        <h2>{{ totalGatePassRequests }}</h2>
-        <p>Gate Pass</p>
-      </div>
+      <div class="stat-card"><h2>{{ totalStudents }}</h2><p>Total Students</p></div>
+      <div class="stat-card"><h2>{{ totalTeachers }}</h2><p>Total Teachers</p></div>
+      <div class="stat-card"><h2>{{ totalResults }}</h2><p>Total Results</p></div>
+      <div class="stat-card"><h2>{{ totalAttendance }}</h2><p>Attendance records</p></div>
+      <div class="stat-card"><h2>{{ totalFees }}</h2><p>Fees records</p></div>
+      <div class="stat-card"><h2>{{ totalTimeTables }}</h2><p>Time Tables</p></div>
+      <div class="stat-card"><h2>{{ totalEvents }}</h2><p>Events</p></div>
+      <div class="stat-card"><h2>{{ totalAchievements }}</h2><p>Achievements</p></div>
+      <div class="stat-card"><h2>{{ totalClassDiary }}</h2><p>Class Diary</p></div>
+      <div class="stat-card"><h2>{{ totalAnnouncements }}</h2><p>Announcements</p></div>
+      <div class="stat-card"><h2>{{ totalPTMFeedback }}</h2><p>PTM Feedback</p></div>
+      <div class="stat-card"><h2>{{ totalLibraryBooks }}</h2><p>Library Books</p></div>
+      <div class="stat-card"><h2>{{ totalObjectiveExams }}</h2><p>Objective Exams</p></div>
+      <div class="stat-card"><h2>{{ totalParentConcerns }}</h2><p>Parent Concerns</p></div>
+      <div class="stat-card"><h2>{{ totalGatePassRequests }}</h2><p>Gate Pass</p></div>
     </div>
 
-    <!-- Quick links row -->
+    <!-- Quick links -->
     <div class="quick-links">
       <button class="link-card" @click="$router.push('/students')">Students</button>
       <button class="link-card" @click="$router.push('/attendance')">Attendance</button>
@@ -111,7 +66,7 @@
       <button class="link-card" @click="$router.push('/settings')">Settings</button>
     </div>
 
-    <!-- Bar chart -->
+    <!-- Chart -->
     <div class="chart-card">
       <h3>School overview</h3>
       <div class="chart-wrapper">
@@ -130,25 +85,33 @@
         <h3 v-if="createMode === 'staff'">Create Admin / Teacher</h3>
         <h3 v-else>Create Student</h3>
 
+        <!-- Common fields -->
         <input v-model="form.name" type="text" placeholder="Name" />
         <input v-model="form.email" type="email" placeholder="Email" />
         <input v-model="form.password" type="password" placeholder="Password" />
 
+        <!-- Staff role select -->
         <select v-if="createMode === 'staff'" v-model="form.role">
           <option disabled value="">Select role</option>
           <option value="admin">Admin</option>
           <option value="teacher">Teacher</option>
         </select>
 
+        <!-- Fixed student role display -->
         <input v-else type="text" value="student" disabled />
 
-        <input
+        <!-- Class (dropdown) -->
+        <select
           v-if="form.role === 'teacher' || createMode === 'student'"
           v-model="form.classId"
-          type="text"
-          placeholder="Class ID (e.g. class_1)"
-        />
+        >
+          <option disabled value="">Select Class</option>
+          <option v-for="cls in classes" :key="cls.value" :value="cls.value">
+            {{ cls.label }}
+          </option>
+        </select>
 
+        <!-- Student-only fields -->
         <input
           v-if="createMode === 'student'"
           v-model="form.idNumber"
@@ -161,6 +124,48 @@
           type="text"
           placeholder="Branch / City"
         />
+
+        <select
+          v-if="createMode === 'student'"
+          v-model="form.gender"
+        >
+          <option value="">Select Gender</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Other">Other</option>
+        </select>
+
+        <input
+          v-if="createMode === 'student'"
+          v-model="form.parentPhone"
+          type="text"
+          placeholder="Parent Phone Number"
+        />
+
+        <!-- Photo upload -->
+        <div v-if="createMode === 'student'" class="form-group">
+          <label>Student Photo</label>
+          <div class="photo-upload-box" @click="triggerStudentPhoto">
+            <div v-if="!form.photoPreview" class="photo-placeholder">
+              <span class="camera-icon">📷</span>
+              <p>Click to upload photo</p>
+              <small>JPG / PNG, Max 2MB</small>
+            </div>
+            <img
+              v-else
+              :src="form.photoPreview"
+              class="photo-preview"
+              alt="Student preview"
+            />
+          </div>
+          <input
+            ref="studentPhotoInput"
+            type="file"
+            accept="image/*"
+            style="display:none"
+            @change="onStudentPhotoSelect"
+          />
+        </div>
 
         <p v-if="createError" class="error-text">{{ createError }}</p>
         <p v-if="createSuccess" class="success-text">{{ createSuccess }}</p>
@@ -178,12 +183,15 @@
 
 <script>
 import { db } from "../../services/firebase"
-import { collection, getDocs, query, where, setDoc, doc } from "firebase/firestore"
+import { collection, getDocs, query, where, setDoc, doc, Timestamp } from "firebase/firestore"
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth"
 import { Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from "chart.js"
 import { Bar } from "vue-chartjs"
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend)
+
+const CLOUD_NAME = "drxe5e2nk"
+const UPLOAD_PRESET = "students_photos"
 
 export default {
   name: "Dashboard",
@@ -218,6 +226,20 @@ export default {
         }
       },
 
+      // classes for dropdown
+      classes: [
+        { label: "Class 1", value: "class_1" },
+        { label: "Class 2", value: "class_2" },
+        { label: "Class 3", value: "class_3" },
+        { label: "Class 4", value: "class_4" },
+        { label: "Class 5", value: "class_5" },
+        { label: "Class 6", value: "class_6" },
+        { label: "Class 7", value: "class_7" },
+        { label: "Class 8", value: "class_8" },
+        { label: "Class 9", value: "class_9" },
+        { label: "Class 10", value: "class_10" }
+      ],
+
       showCreateModal: false,
       createMode: "staff",
       creating: false,
@@ -230,7 +252,12 @@ export default {
         role: "",
         classId: "",
         idNumber: "",
-        branch: ""
+        branch: "",
+        gender: "",
+        parentPhone: "",
+        photoUrl: "",
+        photoPreview: null,
+        photoFile: null
       }
     }
   },
@@ -238,7 +265,6 @@ export default {
     const savedUser = localStorage.getItem("user")
     this.user = savedUser ? JSON.parse(savedUser) : null
     if (!this.user) return
-
     await this.loadDashboard()
   },
   methods: {
@@ -254,7 +280,7 @@ export default {
           getDocs(collection(db, "attendance")),
           getDocs(collection(db, "fees")),
           getDocs(collection(db, "timetables")),
-          getDocs(collection(db, "schoolEvents")),   // ✅ schoolEvents
+          getDocs(collection(db, "schoolEvents")),
           getDocs(collection(db, "achievements")),
           getDocs(collection(db, "classDiary")),
           getDocs(collection(db, "announcements")),
@@ -272,7 +298,7 @@ export default {
           getDocs(query(collection(db, "attendance"), where("classId", "==", classId))),
           getDocs(query(collection(db, "fees"), where("classId", "==", classId))),
           getDocs(query(collection(db, "timetables"), where("classId", "==", classId))),
-          getDocs(collection(db, "schoolEvents")),   // ✅ schoolEvents
+          getDocs(collection(db, "schoolEvents")),
           getDocs(query(collection(db, "achievements"), where("className", "==", classId))),
           getDocs(query(collection(db, "classDiary"), where("classId", "==", classId))),
           getDocs(collection(db, "announcements")),
@@ -289,7 +315,7 @@ export default {
           getDocs(query(collection(db, "attendance"), where("studentId", "==", uid))),
           getDocs(query(collection(db, "fees"), where("studentId", "==", uid))),
           getDocs(query(collection(db, "timetables"), where("classId", "==", classId))),
-          getDocs(collection(db, "schoolEvents")),   // ✅ schoolEvents
+          getDocs(collection(db, "schoolEvents")),
           getDocs(query(collection(db, "users"), where("uid", "==", uid))),
           getDocs(query(collection(db, "achievements"), where("className", "==", classId))),
           getDocs(query(collection(db, "classDiary"), where("classId", "==", classId))),
@@ -323,20 +349,13 @@ export default {
           gatePassSnap
         ] = await Promise.all(queries)
 
-        console.log(
-          "Counts => events:",
-          eventsSnap.size,
-          "| announcements:",
-          announcementsSnap.size
-        )
-
         this.totalStudents = studentsSnap.size
         this.totalTeachers = teachersSnap.size
         this.totalResults = resultsSnap.size
         this.totalAttendance = attendanceSnap.size
         this.totalFees = feesSnap.size
         this.totalTimeTables = timetableSnap.size
-        this.totalEvents = eventsSnap.size               // ✅ graph source
+        this.totalEvents = eventsSnap.size
         this.totalAchievements = achievementsSnap.size
         this.totalClassDiary = classDiarySnap.size
         this.totalAnnouncements = announcementsSnap.size
@@ -355,21 +374,9 @@ export default {
     buildChart() {
       this.chartData = {
         labels: [
-          "Students",
-          "Teachers",
-          "Results",
-          "Attendance",
-          "Fees",
-          "Time Tables",
-          "Events",
-          "Achievements",
-          "Class Diary",
-          "Announcements",
-          "PTM Feedback",
-          "Library Books",
-          "Objective Exams",
-          "Parent Concerns",
-          "Gate Pass"
+          "Students","Teachers","Results","Attendance","Fees","Time Tables",
+          "Events","Achievements","Class Diary","Announcements","PTM Feedback",
+          "Library Books","Objective Exams","Parent Concerns","Gate Pass"
         ],
         datasets: [
           {
@@ -407,26 +414,20 @@ export default {
       this.createError = ""
       this.createSuccess = ""
 
-      if (mode === "staff") {
-        this.form = {
-          name: "",
-          email: "",
-          password: "",
-          role: "",
-          classId: "",
-          idNumber: "",
-          branch: ""
-        }
-      } else {
-        this.form = {
-          name: "",
-          email: "",
-          password: "",
-          role: "student",
-          classId: this.user.role === "teacher" ? this.user.classId || "" : "",
-          idNumber: "",
-          branch: ""
-        }
+      this.form = {
+        name: "",
+        email: "",
+        password: "",
+        role: mode === "staff" ? "" : "student",
+        // student ke liye default Class 4
+        classId: mode === "student" ? "class_4" : "",
+        idNumber: "",
+        branch: "",
+        gender: "",
+        parentPhone: "",
+        photoUrl: "",
+        photoPreview: null,
+        photoFile: null
       }
     },
 
@@ -434,11 +435,52 @@ export default {
       this.showCreateModal = false
     },
 
+    triggerStudentPhoto() {
+      if (this.createMode !== "student") return
+      this.$refs.studentPhotoInput?.click()
+    },
+
+    onStudentPhotoSelect(e) {
+      const file = e.target.files[0]
+      if (!file) return
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Max 2MB photo allowed")
+        return
+      }
+      if (!file.type.startsWith("image/")) {
+        alert("Please select image file")
+        return
+      }
+      this.form.photoFile = file
+      this.form.photoPreview = URL.createObjectURL(file)
+    },
+
+    async uploadStudentPhotoIfNeeded() {
+      if (this.createMode !== "student") return ""
+      if (!this.form.photoFile) return this.form.photoUrl || ""
+      try {
+        const fd = new FormData()
+        fd.append("file", this.form.photoFile)
+        fd.append("upload_preset", UPLOAD_PRESET)
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+          { method: "POST", body: fd }
+        )
+        if (!res.ok) throw new Error("Upload failed")
+        const data = await res.json()
+        return data.secure_url
+      } catch (e) {
+        console.error("Photo upload error:", e)
+        alert("Photo upload failed, saving without photo.")
+        return this.form.photoUrl || ""
+      }
+    },
+
     async handleCreate() {
       this.createError = ""
       this.createSuccess = ""
 
-      const { name, email, password, role, classId, idNumber, branch } = this.form
+      const { name, email, password, role, classId, idNumber, branch, gender, parentPhone } = this.form
       const mode = this.createMode
 
       if (!name || !email || !password) {
@@ -452,12 +494,12 @@ export default {
           return
         }
         if (role === "teacher" && !classId) {
-          this.createError = "Enter classId for teacher (e.g. class_1)."
+          this.createError = "Select class for teacher."
           return
         }
       } else if (mode === "student") {
         if (!classId) {
-          this.createError = "Enter classId for student (e.g. class_1)."
+          this.createError = "Select class for student."
           return
         }
         if (!idNumber) {
@@ -469,7 +511,6 @@ export default {
       try {
         this.creating = true
         const auth = getAuth()
-
         const cred = await createUserWithEmailAndPassword(auth, email, password)
         const uid = cred.user.uid
 
@@ -484,6 +525,8 @@ export default {
           }
           await setDoc(doc(db, "users", uid), userDoc)
         } else {
+          const photoUrl = await this.uploadStudentPhotoIfNeeded()
+
           const userDoc = {
             uid,
             name,
@@ -501,7 +544,10 @@ export default {
             idNumber: studentId,
             classId,
             branch,
-            createdAt: new Date()
+            gender: gender || "",
+            parentPhone: parentPhone || "",
+            photoUrl,
+            createdAt: Timestamp.now()
           })
         }
 
@@ -524,7 +570,6 @@ export default {
 </script>
 
 <style scoped>
-/* tumhara existing CSS same rakha hai */
 .dashboard-container {
   padding: 1.5rem 1.8rem;
   font-family: Arial, sans-serif;
@@ -610,6 +655,7 @@ export default {
   color: #333;
 }
 .chart-wrapper { width: 100%; height: 260px; }
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -623,9 +669,10 @@ export default {
   background: #fff;
   padding: 1.2rem;
   border-radius: 8px;
-  width: 320px;
+  width: 340px;
   max-width: 90%;
 }
+.modal h3 { margin-top: 0; margin-bottom: 0.8rem; }
 .modal input,
 .modal select {
   width: 100%;
@@ -634,6 +681,26 @@ export default {
   border-radius: 4px;
   border: 1px solid #ccc;
 }
+.form-group { margin-bottom: 0.6rem; }
+.photo-upload-box {
+  border: 2px dashed #cbd5e0;
+  border-radius: 8px;
+  padding: 0.8rem;
+  text-align: center;
+  cursor: pointer;
+}
+.photo-placeholder { color: #718096; }
+.camera-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 0.3rem;
+}
+.photo-preview {
+  width: 110px;
+  height: 110px;
+  border-radius: 8px;
+  object-fit: cover;
+}
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -641,6 +708,7 @@ export default {
 }
 .error-text { color: red; font-size: 0.85rem; }
 .success-text { color: green; font-size: 0.85rem; }
+
 @media (max-width: 800px) {
   .chart-wrapper { height: 280px; }
 }
