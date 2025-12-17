@@ -226,7 +226,6 @@ export default {
         }
       },
 
-      // classes for dropdown
       classes: [
         { label: "Class 1", value: "class_1" },
         { label: "Class 2", value: "class_2" },
@@ -272,7 +271,8 @@ export default {
       const { role, uid, classId } = this.user
       let queries = []
 
-      if (role === "superadmin" || role === "admin") {
+      // ✅ Teacher ko bhi now full-school counts milenge
+      if (role === "superadmin" || role === "admin" || role === "teacher") {
         queries = [
           getDocs(collection(db, "students")),
           getDocs(query(collection(db, "users"), where("role", "==", "teacher"))),
@@ -290,25 +290,8 @@ export default {
           getDocs(collection(db, "parentConcerns")),
           getDocs(collection(db, "gatePassRequests"))
         ]
-      } else if (role === "teacher") {
-        queries = [
-          getDocs(query(collection(db, "students"), where("classId", "==", classId))),
-          getDocs(query(collection(db, "users"), where("uid", "==", uid))),
-          getDocs(query(collection(db, "results"), where("classId", "==", classId))),
-          getDocs(query(collection(db, "attendance"), where("classId", "==", classId))),
-          getDocs(query(collection(db, "fees"), where("classId", "==", classId))),
-          getDocs(query(collection(db, "timetables"), where("classId", "==", classId))),
-          getDocs(collection(db, "schoolEvents")),
-          getDocs(query(collection(db, "achievements"), where("className", "==", classId))),
-          getDocs(query(collection(db, "classDiary"), where("classId", "==", classId))),
-          getDocs(collection(db, "announcements")),
-          getDocs(query(collection(db, "ptmFeedback"), where("classId", "==", classId))),
-          getDocs(collection(db, "libraryBooks")),
-          getDocs(query(collection(db, "objectiveExams"), where("classId", "==", classId))),
-          getDocs(query(collection(db, "parentConcerns"), where("classId", "==", classId))),
-          getDocs(query(collection(db, "gatePassRequests"), where("classId", "==", classId)))
-        ]
       } else if (role === "student") {
+        // student ke liye sirf apna data
         queries = [
           getDocs(query(collection(db, "students"), where("uid", "==", uid))),
           getDocs(query(collection(db, "results"), where("studentId", "==", uid))),
@@ -419,7 +402,6 @@ export default {
         email: "",
         password: "",
         role: mode === "staff" ? "" : "student",
-        // student ke liye default Class 4
         classId: mode === "student" ? "class_4" : "",
         idNumber: "",
         branch: "",

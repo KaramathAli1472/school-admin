@@ -206,7 +206,6 @@ export default {
     await this.fetchAttendance()
   },
   methods: {
-    // ✅ Helper: Safe data extraction
     safeData(data) {
       return {
         name: data.name || "",
@@ -230,41 +229,29 @@ export default {
         const studentsRef = collection(db, "students")
         let q = studentsRef
 
+        const role = (this.user.role || "").toString().toLowerCase()
+
         console.log(
           "role:",
-          this.user.role,
-          "classId:",
-          this.user.classId,
+          role,
           "selectedClass:",
           this.selectedClass
         )
 
-        if (this.user.role === "superadmin") {
+        // ✅ Simplified logic: teacher/admin by default see all students
+        if (this.selectedClass) {
+          q = query(studentsRef, where("classId", "==", this.selectedClass))
+        } else {
           q = studentsRef
-        } else if (this.user.role === "admin") {
-          if (this.selectedClass) {
-            q = query(studentsRef, where("classId", "==", this.selectedClass))
-          } else {
-            q = studentsRef
-          }
-        } else if (this.user.role === "teacher") {
-          if (this.selectedClass) {
-            q = query(studentsRef, where("classId", "==", this.selectedClass))
-          } else if (this.user.classId) {
-            q = query(studentsRef, where("classId", "==", this.user.classId))
-          } else {
-            q = studentsRef
-          }
         }
 
         const snap = await getDocs(q)
         console.log("👀 Students fetched:", snap.size)
-        
-        // ✅ FIX 1: Safe student data mapping
+
         this.students = snap.docs.map(d => {
           const data = d.data()
-          return { 
-            id: d.id, 
+          return {
+            id: d.id,
             ...this.safeData(data),
             status: data.status || ""
           }
@@ -294,7 +281,7 @@ export default {
             records.push({
               date: this.activeDate,
               id: studentId,
-              ...this.safeData(rec),  // ✅ Safe data
+              ...this.safeData(rec),
               status: rec.status || ""
             })
           }
@@ -320,13 +307,13 @@ export default {
 
     setStatus(studentId, status) {
       if (!this.canEditAttendance) return
-      
+
       this.attendance = { ...this.attendance, [studentId]: status }
-      
+
       const index = this.allAttendanceRecords.findIndex(
         r => r.id === studentId && r.date === this.activeDate
       )
-      
+
       if (index !== -1) {
         this.$set(this.allAttendanceRecords, index, {
           ...this.allAttendanceRecords[index],
@@ -335,8 +322,7 @@ export default {
       } else {
         const student = this.students.find(s => s.id === studentId)
         if (!student) return
-        
-        // ✅ FIX 2: Safe new record creation
+
         this.allAttendanceRecords.push({
           date: this.activeDate,
           id: studentId,
@@ -353,8 +339,7 @@ export default {
       }
       const student = this.students.find(s => s.id === this.studentToAdd)
       if (!student) return
-      
-      // ✅ FIX 3: Safe add record
+
       this.allAttendanceRecords.push({
         date: this.activeDate,
         id: student.id,
@@ -370,7 +355,7 @@ export default {
         r => r.id === studentId && r.date === this.activeDate
       )
       if (!record) return
-      
+
       const newStatus = prompt(
         "Enter status (Present / Absent / Week Off):",
         record.status
@@ -382,18 +367,15 @@ export default {
 
     deleteRecord(studentId) {
       if (!confirm("Are you sure you want to delete this record?")) return
-      
-      // Remove from attendance map
+
       const { [studentId]: _, ...rest } = this.attendance
       this.attendance = rest
-      
-      // Remove from records
+
       this.allAttendanceRecords = this.allAttendanceRecords.filter(
         r => !(r.id === studentId && r.date === this.activeDate)
       )
     },
 
-    // ✅ FIX 4: Bulletproof saveAttendance
     async saveAttendance() {
       try {
         if (!this.canEditAttendance) {
@@ -405,9 +387,8 @@ export default {
           return
         }
 
-        // Only save records with status
         const recordsToSave = this.allAttendanceRecords.filter(s => s.status)
-        
+
         if (recordsToSave.length === 0) {
           alert("No attendance marked to save")
           return
@@ -423,7 +404,6 @@ export default {
             attendancePayload[cid] = {}
           }
 
-          // 🔥 100% SAFE: No undefined values
           attendancePayload[cid][s.id] = {
             name: s.name || "",
             idNumber: s.idNumber || "",
@@ -433,14 +413,10 @@ export default {
           }
         })
 
-        console.log("📤 Saving:", recordsToSave.length, "records")
-        console.log("Payload sample:", attendancePayload)
-        
         await setDoc(dateRef, attendancePayload, { merge: true })
-        
+
         alert(`✅ Attendance saved successfully for ${recordsToSave.length} students!`)
         await this.fetchAttendance()
-        
       } catch (err) {
         console.error("💥 Save error:", err)
         alert("Failed to save: " + err.message)
