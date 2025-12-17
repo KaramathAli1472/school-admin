@@ -1,0 +1,564 @@
+<template>
+  <div class="announcements-page">
+    <div class="announcements-card">
+      <!-- Top bar -->
+      <div class="card-header">
+        <div class="title-block">
+          <div class="title-icon">📢</div>
+          <div>
+            <h2>Announcements</h2>
+            <p>Announcements for students and classes</p>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <select v-model="filterClass" class="class-filter">
+            <option value="">All classes</option>
+            <option
+              v-for="cls in classOptions"
+              :key="cls"
+              :value="cls"
+            >
+              {{ cls }}
+            </option>
+          </select>
+
+          <button class="btn primary" @click="toggleForm">
+            {{ showForm ? 'Close' : '+ Add' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Add / Edit announcement -->
+      <div v-if="showForm" class="add-area">
+        <div class="field-row">
+          <div class="field">
+            <label>Title</label>
+            <input
+              v-model="form.title"
+              type="text"
+              placeholder="Announcement title"
+            />
+          </div>
+          <div class="field">
+            <label>Class (optional)</label>
+            <input
+              v-model="form.classId"
+              type="text"
+              placeholder="e.g. Class 7"
+            />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Description</label>
+          <textarea
+            v-model="form.description"
+            rows="2"
+            placeholder="Write announcement details"
+          ></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn primary" @click="saveAnnouncement">
+            {{ editingId ? 'Update' : 'Publish' }}
+          </button>
+          <button class="btn ghost" @click="resetForm">Clear</button>
+        </div>
+      </div>
+
+      <!-- List -->
+      <div class="list-header">
+        <span class="list-title">Recent announcements</span>
+        <span class="list-meta">{{ filteredAnnouncements.length }} total</span>
+      </div>
+
+      <ul v-if="filteredAnnouncements.length" class="announcement-list">
+        <li
+          v-for="item in filteredAnnouncements"
+          :key="item.id"
+          class="announcement-row"
+        >
+          <div class="row-main">
+            <div class="row-title">
+              <span class="row-icon">🔔</span>
+              <span class="title-text">{{ item.title }}</span>
+              <span class="class-badge">
+                {{ item.classId || 'All classes' }}
+              </span>
+            </div>
+            <p class="row-desc">{{ item.description }}</p>
+          </div>
+
+          <div class="row-meta">
+            <span class="date-pill">{{ formatDate(item.date) }}</span>
+
+            <div
+              v-if="isTeacherOrAdmin"
+              class="row-actions"
+            >
+              <button
+                class="icon-btn"
+                title="Edit"
+                @click="startEdit(item)"
+              >
+                ✏️
+              </button>
+              <button
+                class="icon-btn delete"
+                title="Delete"
+                @click="deleteAnnouncement(item)"
+              >
+                🗑
+              </button>
+            </div>
+          </div>
+        </li>
+      </ul>
+
+      <p v-else class="empty-text">No announcements found.</p>
+    </div>
+  </div>
+</template>
+
+<script>
+import { db } from "../../services/firebase"
+import {
+  collection,
+  getDocs,
+  doc,
+  setDoc,
+  deleteDoc
+} from "firebase/firestore"  // [web:162][web:331]
+
+export default {
+  name: "Announcements",
+  data() {
+    return {
+      announcements: [],
+      form: {
+        title: "",
+        description: "",
+        classId: ""
+      },
+      showForm: false,
+      editingId: null,
+      filterClass: "",
+      classOptions: [
+        "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
+        "Class 6", "Class 7", "Class 8", "Class 9", "Class 10"
+      ],
+      user: JSON.parse(localStorage.getItem("user")) || {}
+    }
+  },
+  computed: {
+    isTeacherOrAdmin() {
+      return ["teacher", "admin"].includes(this.user.role)
+    },
+    filteredAnnouncements() {
+      if (!this.filterClass) return this.announcements
+      return this.announcements.filter(
+        a => !a.classId || a.classId === this.filterClass
+      )
+    }
+  },
+  methods: {
+    async fetchAnnouncements() {
+      const snap = await getDocs(collection(db, "announcements"))
+      this.announcements = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+    },
+    formatDate(dateStr) {
+      if (!dateStr) return "-"
+      const d = new Date(dateStr)
+      return d.toLocaleDateString()
+    },
+    toggleForm() {
+      if (!this.isTeacherOrAdmin) {
+        alert("Only teachers and admins can add announcements.")
+        return
+      }
+      this.showForm = !this.showForm
+      if (!this.showForm) {
+        this.resetForm()
+      }
+    },
+    resetForm() {
+      this.form = { title: "", description: "", classId: "" }
+      this.editingId = null
+    },
+    startEdit(item) {
+      if (!this.isTeacherOrAdmin) return
+      this.form = {
+        title: item.title,
+        description: item.description,
+        classId: item.classId || ""
+      }
+      this.editingId = item.id
+      this.showForm = true
+    },
+    async saveAnnouncement() {
+      if (!this.isTeacherOrAdmin) {
+        alert("Not allowed.")
+        return
+      }
+
+      const { title, description, classId } = this.form
+      if (!title || !description) {
+        alert("Title and description are required.")
+        return
+      }
+
+      const nowIso = new Date().toISOString()
+      const id = this.editingId || Date.now().toString()
+      const payload = {
+        title,
+        description,
+        classId: classId || null,
+        date: nowIso
+      }
+
+      const docRef = doc(db, "announcements", id)
+      await setDoc(docRef, payload)  // [web:331]
+
+      if (this.editingId) {
+        this.announcements = this.announcements.map(a =>
+          a.id === id ? { id, ...payload } : a
+        )
+      } else {
+        this.announcements = [{ id, ...payload }, ...this.announcements]
+      }
+
+      this.resetForm()
+      this.showForm = false
+    },
+    async deleteAnnouncement(item) {
+      if (!this.isTeacherOrAdmin) {
+        alert("Not allowed.")
+        return
+      }
+      if (!confirm("Delete this announcement?")) return
+
+      const docRef = doc(db, "announcements", item.id)
+      await deleteDoc(docRef)
+
+      this.announcements = this.announcements.filter(a => a.id !== item.id)
+    }
+  },
+  mounted() {
+    this.fetchAnnouncements()
+  }
+}
+</script>
+
+<style scoped>
+.announcements-page {
+  min-height: 100vh;
+  padding: 1rem;
+  background: radial-gradient(circle at top left, #e0f2fe, #f5f5f7);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #111827;
+  display: flex;
+  justify-content: center;
+}
+
+.announcements-card {
+  width: 100%;
+  max-width: 880px;
+  background: #ffffff;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.9rem 1.1rem;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  border-left: 4px solid #2563eb;
+}
+
+/* Header */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.title-block {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.title-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.card-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 650;
+}
+
+.card-header p {
+  margin: 0.18rem 0 0;
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.header-right {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.class-filter {
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  font-size: 0.8rem;
+}
+
+/* Buttons */
+.btn {
+  border-radius: 999px;
+  padding: 0.33rem 0.85rem;
+  font-size: 0.8rem;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s ease;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+}
+
+.btn.primary:hover {
+  filter: brightness(1.05);
+}
+
+.btn.ghost {
+  background: #f9fafb;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn.ghost:hover {
+  background: #e5e7eb;
+}
+
+/* Add form */
+.add-area {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 0.7rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+
+.field-row {
+  display: flex;
+  gap: 0.7rem;
+  margin-bottom: 0.45rem;
+}
+
+.field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.field label {
+  font-size: 0.76rem;
+  color: #6b7280;
+  margin-bottom: 0.18rem;
+}
+
+.field input,
+.field textarea {
+  padding: 0.33rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  font-size: 0.8rem;
+  resize: vertical;
+  background: #f9fafb;
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.16);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+/* List */
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 0.2rem;
+  margin-bottom: 0.25rem;
+}
+
+.list-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.list-meta {
+  font-size: 0.76rem;
+  color: #6b7280;
+}
+
+.announcement-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.announcement-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.55rem;
+  border-radius: 0.7rem;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  margin-bottom: 0.38rem;
+  transition: all 0.15s ease;
+}
+
+.announcement-row:hover {
+  background: #eef3ff;
+  border-color: #c7d2fe;
+}
+
+.row-main {
+  flex: 1;
+}
+
+.row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.row-icon {
+  font-size: 0.85rem;
+}
+
+.title-text {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.class-badge {
+  padding: 0.06rem 0.5rem;
+  border-radius: 999px;
+  background: #e0edff;
+  color: #1d4ed8;
+  font-size: 0.7rem;
+}
+
+.row-desc {
+  margin: 0.22rem 0 0;
+  font-size: 0.8rem;
+  color: #374151;
+}
+
+.row-meta {
+  min-width: 120px;
+  text-align: right;
+  font-size: 0.76rem;
+  color: #6b7280;
+}
+
+.date-pill {
+  display: inline-block;
+  padding: 0.08rem 0.5rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 0.74rem;
+}
+
+/* Edit/Delete small icons */
+.row-actions {
+  margin-top: 0.28rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.icon-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.icon-btn.delete {
+  border-color: #f97373;
+}
+
+.icon-btn:hover {
+  background: #f3f4f6;
+}
+
+.empty-text {
+  margin-top: 0.4rem;
+  font-size: 0.84rem;
+  color: #6b7280;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .announcements-page {
+    padding: 0.8rem;
+  }
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+  .header-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .field-row {
+    flex-direction: column;
+  }
+  .announcement-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .row-meta {
+    text-align: left;
+  }
+}
+</style>
+
