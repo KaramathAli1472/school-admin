@@ -206,6 +206,16 @@ export default {
     await this.fetchAttendance()
   },
   methods: {
+    // ✅ Helper: Safe data extraction
+    safeData(data) {
+      return {
+        name: data.name || "",
+        idNumber: data.idNumber || "",
+        classId: data.classId || "",
+        photoUrl: data.photoUrl || null
+      }
+    },
+
     applyDate() {
       if (!this.selectedDate) {
         alert("Please select a date first")
@@ -238,7 +248,6 @@ export default {
             q = studentsRef
           }
         } else if (this.user.role === "teacher") {
-          // Teacher: apni class ya dropdown se selected class
           if (this.selectedClass) {
             q = query(studentsRef, where("classId", "==", this.selectedClass))
           } else if (this.user.classId) {
@@ -250,7 +259,16 @@ export default {
 
         const snap = await getDocs(q)
         console.log("👀 Students fetched:", snap.size)
-        this.students = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        
+        // ✅ FIX 1: Safe student data mapping
+        this.students = snap.docs.map(d => {
+          const data = d.data()
+          return { 
+            id: d.id, 
+            ...this.safeData(data),
+            status: data.status || ""
+          }
+        })
 
         if (!this.activeDate) {
           this.allAttendanceRecords = []
@@ -276,11 +294,8 @@ export default {
             records.push({
               date: this.activeDate,
               id: studentId,
-              name: rec.name,
-              idNumber: rec.idNumber,
-              classId: rec.classId,
-              photoUrl: rec.photoUrl,
-              status: rec.status
+              ...this.safeData(rec),  // ✅ Safe data
+              status: rec.status || ""
             })
           }
         }
@@ -298,29 +313,34 @@ export default {
       )
       const map = {}
       selectedRecords.forEach(r => {
-        map[r.id] = r.status
+        if (r.status) map[r.id] = r.status
       })
       this.attendance = map
     },
 
     setStatus(studentId, status) {
       if (!this.canEditAttendance) return
+      
       this.attendance = { ...this.attendance, [studentId]: status }
+      
       const index = this.allAttendanceRecords.findIndex(
         r => r.id === studentId && r.date === this.activeDate
       )
+      
       if (index !== -1) {
-        this.allAttendanceRecords[index].status = status
+        this.$set(this.allAttendanceRecords, index, {
+          ...this.allAttendanceRecords[index],
+          status
+        })
       } else {
         const student = this.students.find(s => s.id === studentId)
         if (!student) return
+        
+        // ✅ FIX 2: Safe new record creation
         this.allAttendanceRecords.push({
           date: this.activeDate,
           id: studentId,
-          name: student.name,
-          idNumber: student.idNumber,
-          classId: student.classId,
-          photoUrl: student.photoUrl,
+          ...this.safeData(student),
           status
         })
       }
@@ -333,13 +353,12 @@ export default {
       }
       const student = this.students.find(s => s.id === this.studentToAdd)
       if (!student) return
+      
+      // ✅ FIX 3: Safe add record
       this.allAttendanceRecords.push({
         date: this.activeDate,
         id: student.id,
-        name: student.name,
-        idNumber: student.idNumber,
-        classId: student.classId,
-        photoUrl: student.photoUrl,
+        ...this.safeData(student),
         status: "Present"
       })
       this.attendance[student.id] = "Present"
@@ -351,66 +370,80 @@ export default {
         r => r.id === studentId && r.date === this.activeDate
       )
       if (!record) return
+      
       const newStatus = prompt(
         "Enter status (Present / Absent / Week Off):",
         record.status
       )
-      if (
-        newStatus &&
-        ["Present", "Absent", "Week Off"].includes(newStatus)
-      ) {
+      if (newStatus && ["Present", "Absent", "Week Off"].includes(newStatus)) {
         this.setStatus(studentId, newStatus)
       }
     },
 
     deleteRecord(studentId) {
       if (!confirm("Are you sure you want to delete this record?")) return
+      
+      // Remove from attendance map
       const { [studentId]: _, ...rest } = this.attendance
       this.attendance = rest
+      
+      // Remove from records
       this.allAttendanceRecords = this.allAttendanceRecords.filter(
         r => !(r.id === studentId && r.date === this.activeDate)
       )
     },
 
+    // ✅ FIX 4: Bulletproof saveAttendance
     async saveAttendance() {
-      if (!this.canEditAttendance) {
-        alert("You cannot save attendance")
-        return
-      }
-      if (!this.activeDate) {
-        alert("First select date")
-        return
-      }
       try {
+        if (!this.canEditAttendance) {
+          alert("You cannot save attendance")
+          return
+        }
+        if (!this.activeDate) {
+          alert("First select date")
+          return
+        }
+
+        // Only save records with status
+        const recordsToSave = this.allAttendanceRecords.filter(s => s.status)
+        
+        if (recordsToSave.length === 0) {
+          alert("No attendance marked to save")
+          return
+        }
+
         const docId = this.activeDate
         const dateRef = doc(db, "attendance", docId)
-
         const attendancePayload = {}
 
-        this.allAttendanceRecords.forEach(s => {
-          if (!s.status) return
+        recordsToSave.forEach(s => {
           const cid = s.classId || "unknown"
-
           if (!attendancePayload[cid]) {
             attendancePayload[cid] = {}
           }
 
+          // 🔥 100% SAFE: No undefined values
           attendancePayload[cid][s.id] = {
-            name: s.name,
-            idNumber: s.idNumber,
-            classId: s.classId,
-            photoUrl: s.photoUrl,
+            name: s.name || "",
+            idNumber: s.idNumber || "",
+            classId: s.classId || "",
+            photoUrl: s.photoUrl || null,
             status: s.status
           }
         })
 
+        console.log("📤 Saving:", recordsToSave.length, "records")
+        console.log("Payload sample:", attendancePayload)
+        
         await setDoc(dateRef, attendancePayload, { merge: true })
-
-        alert("Attendance saved successfully!")
+        
+        alert(`✅ Attendance saved successfully for ${recordsToSave.length} students!`)
         await this.fetchAttendance()
+        
       } catch (err) {
-        console.error("Error saving attendance:", err)
-        alert("Failed to save attendance.")
+        console.error("💥 Save error:", err)
+        alert("Failed to save: " + err.message)
       }
     }
   }
@@ -420,24 +453,30 @@ export default {
 <style scoped>
 .attendance-container{padding:2rem;background:#f5f5f5;min-height:100vh}
 .controls{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;align-items:center}
-.today-text{font-weight:bold}
+.today-text{font-weight:bold;color:#2196F3}
 .add-student-section{display:flex;align-items:center;gap:0.5rem}
-table{width:100%;border-collapse:collapse;background:white;margin-top:1rem}
-th,td{border:1px solid #ccc;padding:0.8rem;text-align:left}
-th{background:#2196F3;color:white}
-.student-photo{width:35px;height:35px;border-radius:50%;object-fit:cover}
-.status-group{display:flex;gap:0.4rem}
-.status-pill{display:inline-flex;align-items:center;gap:0.25rem;padding:0.15rem 0.6rem;border-radius:999px;font-size:0.8rem;font-weight:600;color:#fff;cursor:pointer;opacity:0.6;border:1px solid transparent}
-.status-pill input{margin:0}
+table{width:100%;border-collapse:collapse;background:white;margin-top:1rem;box-shadow:0 2px 10px rgba(0,0,0,0.1)}
+th,td{border:1px solid #ddd;padding:0.8rem;text-align:left}
+th{background:#2196F3;color:white;font-weight:600}
+.student-photo{width:35px;height:35px;border-radius:50%;object-fit:cover;border:2px solid #eee}
+.status-group{display:flex;gap:0.4rem;flex-wrap:wrap}
+.status-pill{display:inline-flex;align-items:center;gap:0.25rem;padding:0.4rem 0.8rem;border-radius:20px;font-size:0.85rem;font-weight:600;color:#fff;cursor:pointer;opacity:0.7;border:2px solid transparent;transition:all 0.2s}
+.status-pill input{margin:0;accent-color:white}
 .status-pill.present{background:#4caf50}
 .status-pill.absent{background:#e53935}
 .status-pill.weekoff{background:#ff9800}
-.status-pill.active{opacity:1;border-color:#00000044}
-.status-badge{padding:0.2rem 0.6rem;border-radius:999px;color:#fff;font-size:0.8rem}
+.status-pill.active{opacity:1;transform:scale(1.05);border-color:rgba(255,255,255,0.5)}
+.status-badge{padding:0.3rem 0.8rem;border-radius:20px;color:#fff;font-size:0.85rem;font-weight:500}
 .status-badge.present{background:#4caf50}
 .status-badge.absent{background:#e53935}
 .status-badge.weekoff{background:#ff9800}
-button{margin-top:0.3rem;padding:0.4rem 0.8rem;background:#1976d2;color:white;border:none;border-radius:5px;cursor:pointer}
+button{margin:0.2rem 0.1rem;padding:0.4rem 0.8rem;background:#1976d2;color:white;border:none;border-radius:5px;cursor:pointer;font-size:0.85rem;transition:background 0.2s}
 button:hover{background:#0d47a1}
+button:active{transform:scale(0.98)}
+@media (max-width:768px) {
+  .controls{flex-direction:column;align-items:stretch}
+  .add-student-section{justify-content:center}
+  .status-group{justify-content:center}
+}
 </style>
 
