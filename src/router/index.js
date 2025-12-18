@@ -1,7 +1,12 @@
 import { createRouter, createWebHistory } from "vue-router"
 
+// Auth
 import Login from "../views/login/Login.vue"
+
+// Dashboard
 import Dashboard from "../views/dashboard/Dashboard.vue"
+
+// Main Modules
 import Students from "../views/students/Students.vue"
 import Attendance from "../views/attendance/Attendance.vue"
 import Homework from "../views/homework/Homework.vue"
@@ -10,10 +15,10 @@ import Results from "../views/results/Results.vue"
 import Gallery from "../views/gallery/Gallery.vue"
 import TimeTable from "../views/timetable/TimeTable.vue"
 
-// ✅ Event Calendar
+// Event Calendar
 import EventCalendar from "../views/events/EventCalendar.vue"
 
-// ✅ Achievements & others
+// Other Features
 import Achievements from "../views/achievements/Achievements.vue"
 import ClassDiary from "../views/classDiary/ClassDiary.vue"
 import Announcements from "../views/announcements/Announcements.vue"
@@ -23,12 +28,17 @@ import ObjectiveExams from "../views/objective/ObjectiveExams.vue"
 import ParentConcerns from "../views/concerns/ParentConcerns.vue"
 import GatePassRequests from "../views/gatepass/GatePassRequests.vue"
 
-// ✅ Settings (NEW)
+// Settings
 import Settings from "../views/settings/Settings.vue"
+import Privacy from "../views/settings/Privacy.vue" // ✅ Privacy added
+
+// Contact Page
+import Contact from "../views/settings/Contact.vue"
 
 const routes = [
   { path: "/", redirect: "/login" },
   { path: "/login", component: Login },
+
   { path: "/dashboard", component: Dashboard },
   { path: "/students", component: Students },
   { path: "/attendance", component: Attendance },
@@ -47,20 +57,26 @@ const routes = [
   { path: "/notices", component: Announcements },
   { path: "/announcements", component: Announcements },
 
-  // ✅ Event Calendar
+  // Event Calendar
   { path: "/events", component: EventCalendar },
 
-  // ✅ Achievements
+  // Achievements
   { path: "/achievements", component: Achievements },
 
-  // ✅ Parent Concerns
+  // Parent Concerns
   { path: "/parent-concerns", component: ParentConcerns },
 
-  // ✅ Gate Pass Requests
+  // Gate Pass Requests
   { path: "/gate-pass", component: GatePassRequests },
 
-  // ✅ Settings route
-  { path: "/settings", component: Settings }
+  // ✅ Settings
+  { path: "/settings", component: Settings },
+
+  // ✅ Privacy & Data Safety (Settings ke under)
+  { path: "/settings/privacy", component: Privacy },
+
+  // ✅ Contact Us (Settings ke under)
+  { path: "/contact", component: Contact }
 ]
 
 const router = createRouter({

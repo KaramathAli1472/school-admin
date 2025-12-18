@@ -64,6 +64,22 @@
       <button class="link-card" @click="$router.push('/parent-concerns')">Parent Concerns</button>
       <button class="link-card" @click="$router.push('/gate-pass')">Gate Pass</button>
       <button class="link-card" @click="$router.push('/settings')">Settings</button>
+
+      <!-- Privacy button -->
+      <button
+        class="link-card"
+        @click="$router.push('/settings/privacy')"
+      >
+        Privacy &amp; Data Safety
+      </button>
+
+      <!-- Contact Us button -->
+      <button
+        class="link-card"
+        @click="showContactModal = true"
+      >
+        Contact Us
+      </button>
     </div>
 
     <!-- Chart -->
@@ -79,105 +95,43 @@
       </div>
     </div>
 
-    <!-- Create user / student modal -->
-    <div v-if="showCreateModal" class="modal-backdrop">
+    <!-- Contact Us Modal -->
+    <div v-if="showContactModal" class="modal-backdrop">
       <div class="modal">
-        <h3 v-if="createMode === 'staff'">Create Admin / Teacher</h3>
-        <h3 v-else>Create Student</h3>
-
-        <!-- Common fields -->
-        <input v-model="form.name" type="text" placeholder="Name" />
-        <input v-model="form.email" type="email" placeholder="Email" />
-        <input v-model="form.password" type="password" placeholder="Password" />
-
-        <!-- Staff role select -->
-        <select v-if="createMode === 'staff'" v-model="form.role">
-          <option disabled value="">Select role</option>
-          <option value="admin">Admin</option>
-          <option value="teacher">Teacher</option>
-        </select>
-
-        <!-- Fixed student role display -->
-        <input v-else type="text" value="student" disabled />
-
-        <!-- Class (dropdown) -->
-        <select
-          v-if="form.role === 'teacher' || createMode === 'student'"
-          v-model="form.classId"
-        >
-          <option disabled value="">Select Class</option>
-          <option v-for="cls in classes" :key="cls.value" :value="cls.value">
-            {{ cls.label }}
-          </option>
-        </select>
-
-        <!-- Student-only fields -->
-        <input
-          v-if="createMode === 'student'"
-          v-model="form.idNumber"
-          type="text"
-          placeholder="Student ID / Roll No"
-        />
-        <input
-          v-if="createMode === 'student'"
-          v-model="form.branch"
-          type="text"
-          placeholder="Branch / City"
-        />
-
-        <select
-          v-if="createMode === 'student'"
-          v-model="form.gender"
-        >
-          <option value="">Select Gender</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-          <option value="Other">Other</option>
-        </select>
+        <h3>Contact Us</h3>
+        <p class="contact-text">
+          Please fill in the details below to contact the school management team.
+        </p>
 
         <input
-          v-if="createMode === 'student'"
-          v-model="form.parentPhone"
+          v-model="contactForm.name"
           type="text"
-          placeholder="Parent Phone Number"
+          placeholder="Your Name"
         />
+        <input
+          v-model="contactForm.email"
+          type="email"
+          placeholder="Your Email"
+        />
+        <textarea
+          v-model="contactForm.message"
+          class="textarea"
+          placeholder="Your Message"
+          rows="4"
+        ></textarea>
 
-        <!-- Photo upload -->
-        <div v-if="createMode === 'student'" class="form-group">
-          <label>Student Photo</label>
-          <div class="photo-upload-box" @click="triggerStudentPhoto">
-            <div v-if="!form.photoPreview" class="photo-placeholder">
-              <span class="camera-icon">📷</span>
-              <p>Click to upload photo</p>
-              <small>JPG / PNG, Max 2MB</small>
-            </div>
-            <img
-              v-else
-              :src="form.photoPreview"
-              class="photo-preview"
-              alt="Student preview"
-            />
-          </div>
-          <input
-            ref="studentPhotoInput"
-            type="file"
-            accept="image/*"
-            style="display:none"
-            @change="onStudentPhotoSelect"
-          />
-        </div>
-
-        <p v-if="createError" class="error-text">{{ createError }}</p>
-        <p v-if="createSuccess" class="success-text">{{ createSuccess }}</p>
+        <p v-if="contactError" class="error-text">{{ contactError }}</p>
+        <p v-if="contactSuccess" class="success-text">{{ contactSuccess }}</p>
 
         <div class="modal-actions">
-          <button @click="closeCreateModal">Close</button>
-          <button :disabled="creating" @click="handleCreate">
-            {{ creating ? 'Creating...' : 'Create' }}
+          <button @click="closeContactModal">Close</button>
+          <button :disabled="sendingContact" @click="submitContact">
+            {{ sendingContact ? 'Sending...' : 'Send Message' }}
           </button>
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -257,6 +211,17 @@ export default {
         photoUrl: "",
         photoPreview: null,
         photoFile: null
+      },
+
+      // Contact modal state
+      showContactModal: false,
+      sendingContact: false,
+      contactError: "",
+      contactSuccess: "",
+      contactForm: {
+        name: "",
+        email: "",
+        message: ""
       }
     }
   },
@@ -271,7 +236,6 @@ export default {
       const { role, uid, classId } = this.user
       let queries = []
 
-      // ✅ Teacher ko bhi now full-school counts milenge
       if (role === "superadmin" || role === "admin" || role === "teacher") {
         queries = [
           getDocs(collection(db, "students")),
@@ -291,7 +255,6 @@ export default {
           getDocs(collection(db, "gatePassRequests"))
         ]
       } else if (role === "student") {
-        // student ke liye sirf apna data
         queries = [
           getDocs(query(collection(db, "students"), where("uid", "==", uid))),
           getDocs(query(collection(db, "results"), where("studentId", "==", uid))),
@@ -543,6 +506,50 @@ export default {
       }
     },
 
+    // Contact modal helpers
+    closeContactModal() {
+      this.showContactModal = false
+      this.contactError = ""
+      this.contactSuccess = ""
+      this.contactForm = {
+        name: "",
+        email: "",
+        message: ""
+      }
+    },
+
+    async submitContact() {
+      this.contactError = ""
+      this.contactSuccess = ""
+
+      const { name, email, message } = this.contactForm
+      if (!name || !email || !message) {
+        this.contactError = "Please fill name, email and message."
+        return
+      }
+
+      try {
+        this.sendingContact = true
+
+        // Yaha tum Firestore me ek collection bana sakte ho, jaise "contactMessages"
+        const refId = doc(collection(db, "contactMessages"))
+        await setDoc(refId, {
+          name,
+          email,
+          message,
+          userUid: this.user?.uid || null,
+          createdAt: Timestamp.now()
+        })
+
+        this.contactSuccess = "Message sent successfully."
+      } catch (e) {
+        console.error("Contact submit error:", e)
+        this.contactError = "Failed to send message."
+      } finally {
+        this.sendingContact = false
+      }
+    },
+
     logout() {
       localStorage.removeItem("user")
       this.$router.push("/login")
@@ -638,6 +645,7 @@ export default {
 }
 .chart-wrapper { width: 100%; height: 260px; }
 
+/* Modal common styles */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -654,14 +662,22 @@ export default {
   width: 340px;
   max-width: 90%;
 }
-.modal h3 { margin-top: 0; margin-bottom: 0.8rem; }
+.modal h3 { margin-top: 0; margin-bottom: 0.6rem; }
 .modal input,
-.modal select {
+.modal select,
+.textarea {
   width: 100%;
   margin-bottom: 0.6rem;
   padding: 0.4rem;
   border-radius: 4px;
   border: 1px solid #ccc;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+.contact-text {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  color: #555;
 }
 .form-group { margin-bottom: 0.6rem; }
 .photo-upload-box {
