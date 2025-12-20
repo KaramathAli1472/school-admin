@@ -95,6 +95,125 @@
       </div>
     </div>
 
+    <!-- Create User / Student Modal -->
+    <div v-if="showCreateModal" class="modal-backdrop">
+      <div class="modal">
+        <h3 v-if="createMode === 'staff'">Create Admin / Teacher</h3>
+        <h3 v-else>Create Student</h3>
+
+        <!-- Common fields -->
+        <input
+          v-model="form.name"
+          type="text"
+          placeholder="Name"
+        />
+        <input
+          v-model="form.email"
+          type="email"
+          placeholder="Email"
+        />
+        <input
+          v-model="form.password"
+          type="password"
+          placeholder="Password"
+        />
+
+        <!-- Staff specific -->
+        <div v-if="createMode === 'staff'">
+          <select v-model="form.role">
+            <option value="">Select role</option>
+            <option value="admin">Admin</option>
+            <option value="teacher">Teacher</option>
+          </select>
+
+          <select v-model="form.classId" v-if="form.role === 'teacher'">
+            <option value="">Select class (for teacher)</option>
+            <option
+              v-for="c in classes"
+              :key="c.value"
+              :value="c.value"
+            >
+              {{ c.label }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Student specific -->
+        <div v-else>
+          <select v-model="form.classId">
+            <option value="">Select class</option>
+            <option
+              v-for="c in classes"
+              :key="c.value"
+              :value="c.value"
+            >
+              {{ c.label }}
+            </option>
+          </select>
+
+          <input
+            v-model="form.idNumber"
+            type="text"
+            placeholder="Student ID / Roll no."
+          />
+          <input
+            v-model="form.branch"
+            type="text"
+            placeholder="Branch (optional)"
+          />
+          <select v-model="form.gender">
+            <option value="">Gender (optional)</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+          <input
+            v-model="form.parentPhone"
+            type="text"
+            placeholder="Parent phone (optional)"
+          />
+
+          <!-- Photo upload (optional) -->
+          <div class="form-group">
+            <div
+              class="photo-upload-box"
+              @click="triggerStudentPhoto"
+            >
+              <template v-if="form.photoPreview">
+                <img
+                  :src="form.photoPreview"
+                  alt="Student photo"
+                  class="photo-preview"
+                />
+              </template>
+              <template v-else>
+                <span class="camera-icon">📷</span>
+                <p class="photo-placeholder">
+                  Click to upload student photo (max 2MB)
+                </p>
+              </template>
+            </div>
+            <input
+              type="file"
+              ref="studentPhotoInput"
+              accept="image/*"
+              style="display:none"
+              @change="onStudentPhotoSelect"
+            />
+          </div>
+        </div>
+
+        <p v-if="createError" class="error-text">{{ createError }}</p>
+        <p v-if="createSuccess" class="success-text">{{ createSuccess }}</p>
+
+        <div class="modal-actions">
+          <button @click="closeCreateModal">Close</button>
+          <button :disabled="creating" @click="handleCreate">
+            {{ creating ? 'Creating...' : 'Create' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Contact Us Modal -->
     <div v-if="showContactModal" class="modal-backdrop">
       <div class="modal">
@@ -360,12 +479,15 @@ export default {
       this.createError = ""
       this.createSuccess = ""
 
+      // default form reset
       this.form = {
         name: "",
         email: "",
         password: "",
         role: mode === "staff" ? "" : "student",
-        classId: mode === "student" ? "class_4" : "",
+        classId: mode === "student"
+          ? (this.user.role === "teacher" ? this.user.classId || "" : "class_4")
+          : "",
         idNumber: "",
         branch: "",
         gender: "",
@@ -382,7 +504,7 @@ export default {
 
     triggerStudentPhoto() {
       if (this.createMode !== "student") return
-      this.$refs.studentPhotoInput?.click()
+      this.$refs.studentPhotoInput && this.$refs.studentPhotoInput.click()
     },
 
     onStudentPhotoSelect(e) {
@@ -530,8 +652,6 @@ export default {
 
       try {
         this.sendingContact = true
-
-        // Yaha tum Firestore me ek collection bana sakte ho, jaise "contactMessages"
         const refId = doc(collection(db, "contactMessages"))
         await setDoc(refId, {
           name,
